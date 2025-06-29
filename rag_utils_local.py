@@ -2,13 +2,17 @@ import os
 from langchain_community.document_loaders import PyMuPDFLoader
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain_community.vectorstores import FAISS
+from langchain_ollama.embeddings import OllamaEmbeddings
 from langchain.chains import RetrievalQA
+#from langchain_community.llms import Ollama
+from langchain_ollama import OllamaLLM
 from langchain.prompts import PromptTemplate
-from langchain_community.llms import HuggingFaceHub
-from langchain_community.embeddings import HuggingFaceEmbeddings
 
-
+    
 def load_and_split_pdfs(pdf_dir):
+    """
+    Charge tous les fichiers PDF depuis un dossier et les découpe en chunks.
+    """
     all_docs = []
     for file in os.listdir(pdf_dir):
         if file.endswith(".pdf"):
@@ -18,13 +22,9 @@ def load_and_split_pdfs(pdf_dir):
             chunks = splitter.split_documents(docs)
             all_docs.extend(chunks)
     return all_docs
-
-
+    
 def create_or_load_vectorstore(documents, index_path="faiss_index"):
-    embeddings = HuggingFaceEmbeddings(
-    model_name="sentence-transformers/all-MiniLM-L6-v2",
-    model_kwargs={"device": "cpu"}
-)
+    embeddings = OllamaEmbeddings(model="mxbai-embed-large")
 
     index_file = os.path.join(index_path, "index.faiss")
     if os.path.exists(index_file):
@@ -34,30 +34,28 @@ def create_or_load_vectorstore(documents, index_path="faiss_index"):
         vectorstore.save_local(index_path)
         return vectorstore
 
-
 def build_qa_chain(vectorstore):
     retriever = vectorstore.as_retriever()
-
+    llm = OllamaLLM(model="llama3")
+    
+    # Prompt pour forcer le français
     prompt = PromptTemplate(
         input_variables=["context", "question"],
-        template="""
-Tu es un assistant intelligent. Tu réponds toujours en français.
+        template="""Tu es un assistant intelligent qui répond toujours en français.
 Voici le contexte : {context}
 
 Question : {question}
-Réponse :
-"""
+Réponse :""",
     )
 
-    llm = HuggingFaceHub(
-        repo_id="google/flan-t5-base",  # ou mistralai/Mistral-7B-Instruct-v0.1 si tu veux + puissant
-        model_kwargs={"temperature": 0.5, "max_length": 512}
-    )
-
-    return RetrievalQA.from_chain_type(
+    qa_chain = RetrievalQA.from_chain_type(
         llm=llm,
         retriever=retriever,
         chain_type="stuff",
-        chain_type_kwargs={"prompt": prompt}
+        chain_type_kwargs={"prompt": prompt},
+        return_source_documents=False
     )
-
+    
+    #qa_chain = RetrievalQA.from_chain_type(llm=llm, retriever=retriever)
+    return qa_chain
+     

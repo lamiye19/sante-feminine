@@ -2,11 +2,12 @@
 import streamlit as st
 from rag_utils import load_and_split_pdfs, create_or_load_vectorstore, build_qa_chain
 import time
+import os
 
 # Création de l'arborescence et des fichiers
 base_dir = "data"
-#os.makedirs(base_dir, exist_ok=True)
-#os.makedirs(f"{base_dir}", exist_ok=True)  # Dossier pour les PDF
+os.environ["HUGGINGFACEHUB_API_TOKEN"] = st.secrets["HUGGINGFACEHUB_API_TOKEN"]
+
 
 documents = load_and_split_pdfs(base_dir)
 #st.write("documents")
