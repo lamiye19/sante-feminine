@@ -3,4 +3,4 @@ langchain
 langchain-community
 PyMuPDF
 faiss-cpu
-
+sentence-transformers
